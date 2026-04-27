@@ -2,11 +2,11 @@ import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.rmi.RemoteException;
+import java.rmi.server.UnicastRemoteObject;
 
-public class JanelaJogo extends JFrame implements InterfaceJogo {
+public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
     private NovoTabuleiro backend;
     private InterfaceJogo oponente;
-    private Conexao rede;
     private JButton[][] botoes = new JButton[5][6];
     private JTextPane areaChat;
     private String historicoHTML = "";
@@ -25,7 +25,8 @@ public class JanelaJogo extends JFrame implements InterfaceJogo {
     private int meuId;
     private int oponenteId;
 
-    public JanelaJogo(NovoTabuleiro tabuleiro, int id) {
+    public NovaJanelaJogo(NovoTabuleiro tabuleiro, int id) throws RemoteException {
+        UnicastRemoteObject.exportObject(this, 0);
         this.backend = tabuleiro;
         this.meuId = id;
         this.oponenteId = (id == NovoTabuleiro.JOGADOR1) ? NovoTabuleiro.JOGADOR2 : NovoTabuleiro.JOGADOR1;
@@ -111,7 +112,9 @@ public class JanelaJogo extends JFrame implements InterfaceJogo {
         setVisible(true);
     }
 
-    // --- MÉTODOS DE ATUALIZAÇÃO ---
+    public void setOponente(InterfaceJogo oponente) {
+        this.oponente = oponente;  
+    }
 
     private void atualizarTabuleiro() {
         for (int l = 0; l < 5; l++) {
@@ -122,10 +125,10 @@ public class JanelaJogo extends JFrame implements InterfaceJogo {
                 botoes[l][c].setBackground(CINZA_XP);
                 botoes[l][c].setBorder(BorderFactory.createRaisedBevelBorder());
 
-                if (peca == Tabuleiro.JOGADOR1) {
+                if (peca == NovoTabuleiro.JOGADOR1) {
                     botoes[l][c].setText("X");
                     botoes[l][c].setForeground(AZUL_XP);
-                } else if (peca == Tabuleiro.JOGADOR2) {
+                } else if (peca == NovoTabuleiro.JOGADOR2) {
                     botoes[l][c].setText("O");
                     botoes[l][c].setForeground(VERMELHO_XP);
                 } else {
@@ -137,14 +140,79 @@ public class JanelaJogo extends JFrame implements InterfaceJogo {
 
     //Método que processa os cliques no tabuleiro
     private void aoClicar(int l, int c) {
-        // Por enquanto, apenas um teste para ver se funciona
-        System.out.println("Clicou na posição: " + l + "," + c);
-    
-        // Aqui virá a lógica de:
-        // 1. Verificar se é o seu turno
-        // 2. Chamar o backend.colocarPeca ou moverPeca
-        // 3. Enviar a jogada pela rede
-        // 4. atualizarTabuleiro();
+        if (jogoFinalizado || jogadorAtual != meuId) return;
+
+        try {
+            // MODO CAPTURA: Você formou um trio e precisa escolher uma peça do oponente para remover
+            if (modoCaptura) {
+                if (backend.removerPeca(meuId, l, c)) {
+                    oponente.receberRemocao(l, c);
+                    modoCaptura = false;
+                    jogadorAtual = oponenteId; // Passa a vez para o oponente
+                    adicionarMensagemChat("Sistema", "Você capturou uma peça do oponente! Turno do oponente.", "gray");
+                }
+                atualizarTabuleiro();
+                return;
+            }
+
+            // FASE DE COLOCAÇÃO: Coloca uma das 12 peças iniciais no tabuleiro
+            if (backend.isFaseColocacao()) {
+                if (backend.colocarPeca(meuId, l, c)) {
+                    try {
+                        if (oponente != null) oponente.receberJogada(l, c);
+
+                        jogadorAtual = oponenteId; // Passa a vez para o oponente
+
+                        atualizarTabuleiro();
+
+                        adicionarMensagemChat("Sistema", "Peça colocada! Turno do oponente.", "gray");
+                    } catch (RemoteException ex) {
+                        ex.printStackTrace();
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(this, "Movimento Inválido!\nNão é permitido formar trios na fase de colocação.", "Regras do Dara", JOptionPane.WARNING_MESSAGE);
+                }
+            }
+
+            // FASE DE MOVIMENTAÇÃO: Move uma peça para um espaço adjacente vazio
+            else {
+                if (lOrigem == -1 && cOrigem == -1) {
+                    // Seleciona a peça de origem
+                    if (backend.getPeca(l, c) == meuId) {
+                        lOrigem = l;
+                        cOrigem = c;
+                        botoes[l][c].setBorder(BorderFactory.createLineBorder(Color.YELLOW));
+                    }
+                } else {
+                    // Tenta mover para o destino
+                    if (backend.moverPeca(meuId, lOrigem, cOrigem, l, c)) {
+                        try {
+                            if (oponente != null) oponente.receberMovimento(lOrigem, cOrigem, l, c);
+
+                            if (backend.formouTrio(l, c, meuId)) {
+                                modoCaptura = true; // Ativa modo captura para o próximo clique
+                                adicionarMensagemChat("Sistema", "Você formou um trio! Escolha uma peça do oponente para capturar.", "gray");
+                            } else {
+                                jogadorAtual = oponenteId; // Passa a vez para o oponente
+                                adicionarMensagemChat("Sistema", "Peça movida! Turno do oponente.", "gray");
+                            }
+                        } catch (RemoteException ex) {
+                            ex.printStackTrace();
+                        }
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Movimento Inválido!\nSó é permitido mover para espaços adjacentes vazios.", "Regras do Dara", JOptionPane.WARNING_MESSAGE);
+                    }
+                    // Reseta seleção
+                    botoes[lOrigem][cOrigem].setBorder(BorderFactory.createRaisedBevelBorder());
+                    lOrigem = -1;
+                    cOrigem = -1;
+                }
+            }
+            atualizarTabuleiro();
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
     
     // 2. Método para o botão de Desistir
@@ -152,7 +220,11 @@ public class JanelaJogo extends JFrame implements InterfaceJogo {
         int resposta = JOptionPane.showConfirmDialog(this, "Deseja mesmo abandonar a partida?", 
         "Confirmação Windows XP", JOptionPane.YES_NO_OPTION);
         if (resposta == JOptionPane.YES_OPTION) {
-            if (rede != null) rede.enviar("SURRENDER");
+            try {
+                if (oponente != null) oponente.receberDesistencia();
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
             System.exit(0);
         }
     }
@@ -161,14 +233,16 @@ public class JanelaJogo extends JFrame implements InterfaceJogo {
     private void enviarMensagem() {
         String texto = campoTexto.getText().trim();
         if (!texto.isEmpty()) {
-            // Envia pela rede
-            if (rede != null) rede.enviar("CHAT;" + texto);
-        
-            // Mostra localmente
-            adicionarMensagemChat("Você", texto, "blue");
-        
-            // Limpa o campo
-            campoTexto.setText("");
+            try {
+                // Envia pela rede
+                if (oponente != null) oponente.receberMensagem("Oponente", texto);
+                // Mostra localmente
+                adicionarMensagemChat("Você", texto, "blue");
+                // Limpa o campo
+                campoTexto.setText("");
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -183,7 +257,11 @@ public class JanelaJogo extends JFrame implements InterfaceJogo {
 
     @Override
     public void receberMensagem(String autor, String msg) throws RemoteException {
-        adicionarMensagemChat(autor, msg, "red"); // Mensagem do oponente em vermelho
+        if (autor.equals("Sistema")) {
+            adicionarMensagemChat(autor, msg, "gray"); // Mensagem do sistema em cinza
+        } else {
+            adicionarMensagemChat(autor, msg, "red"); // Mensagem do oponente em vermelho
+        }
     }
 
     @Override
@@ -196,8 +274,14 @@ public class JanelaJogo extends JFrame implements InterfaceJogo {
     public void receberRemocao(int l, int c) throws RemoteException {
         backend.removerPeca(oponenteId, l, c);
         atualizarTabuleiro();
+
         this.jogadorAtual = meuId; // Agora é o meu turno
         adicionarMensagemChat("Sistema", "O oponente capturou uma de suas peças! É a sua vez de jogar!", "gray");
+
+        int vencedor = backend.verificarVencedor();
+        if (vencedor == oponenteId ) {
+           JOptionPane.showMessageDialog(this, "Você ficou com apenas 2 peças. O oponente venceu!"); 
+        }
     }
 
     @Override
@@ -207,12 +291,25 @@ public class JanelaJogo extends JFrame implements InterfaceJogo {
         atualizarTabuleiro();
 
         if (backend.formouTrio(l, c, oponenteId)) {
+            this.jogadorAtual = oponenteId; // O oponente continua jogando para capturar
             adicionarMensagemChat("Sistema", "O oponente formou um trio! Ele pode capturar uma peça sua.", "gray");
-            
-            
+        } else {
+            this.jogadorAtual = meuId; // Agora é o meu turno
+            adicionarMensagemChat("Sistema", "É a sua vez de jogar!", "gray");
         }
+    }
 
-        this.jogadorAtual = meuId; // Agora é o meu turno
-        adicionarMensagemChat("Sistema", "É a sua vez de jogar!", "green");
+    @Override
+    public void receberMovimento(int lOrigem, int cOrigem, int lDestino, int cDestino) throws RemoteException {
+        backend.moverPeca(oponenteId, lOrigem, cOrigem, lDestino, cDestino);
+        
+        if (backend.formouTrio(lDestino, cDestino, oponenteId)) {
+            this.jogadorAtual = oponenteId; // O oponente continua jogando para capturar
+            adicionarMensagemChat("Sistema", "O oponente formou um trio! Ele pode capturar uma peça sua.", "gray");
+        } else {
+            this.jogadorAtual = meuId; // Agora é o meu turno
+            adicionarMensagemChat("Sistema", "É a sua vez de jogar!", "gray");
+        }
+        atualizarTabuleiro();
     }
 }

@@ -2,18 +2,19 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 
 public interface InterfaceJogo extends Remote {
-    // Chat 
+    
+    // 1. Fase de Colocação: Envia a posição da peça 
+    void receberJogada(int linha, int coluna) throws RemoteException;
+    
+    // 2. Fase de Movimentação: Envia origem e destino 
+    void receberMovimento(int lOrigem, int cOrigem, int lDestino, int cDestino) throws RemoteException;
+    
+    // 3. Captura: Avisa que uma peça foi removida
+    void receberRemocao(int linha, int coluna) throws RemoteException;
+    
+    // 4. Chat: Envia mensagem de texto 
     void receberMensagem(String autor, String msg) throws RemoteException;
-
-    // Colocação de peças (Fase 1) 
-    void receberJogada(int l, int c) throws RemoteException;
-
-    // Movimentação (Fase 2) 
-    void receberMovimento(int lo, int co, int ld, int cd) throws RemoteException;
-
-    // Captura (Quando forma trio) 
-    void receberRemocao(int l, int c) throws RemoteException;
-
-    // Desistência 
+    
+    // 5. Desistência: Avisa que o oponente saiu 
     void receberDesistencia() throws RemoteException;
 }
