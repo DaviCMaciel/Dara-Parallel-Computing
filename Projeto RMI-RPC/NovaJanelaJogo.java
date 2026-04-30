@@ -141,6 +141,13 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
     //Método que processa os cliques no tabuleiro
     private void aoClicar(int l, int c) {
         if (jogoFinalizado || jogadorAtual != meuId) return;
+        
+        if (oponente == null) {
+        JOptionPane.showMessageDialog(this, 
+            "Aguarde! O oponente ainda não entrou na sala.", 
+            "Dara RMI", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
         try {
             // MODO CAPTURA: Você formou um trio e precisa escolher uma peça do oponente para remover
@@ -181,7 +188,7 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
                     if (backend.getPeca(l, c) == meuId) {
                         lOrigem = l;
                         cOrigem = c;
-                        botoes[l][c].setBorder(BorderFactory.createLineBorder(Color.YELLOW));
+                        botoes[l][c].setBackground(Color.YELLOW); // Destaca a peça selecionada
                     }
                 } else {
                     // Tenta mover para o destino
@@ -222,6 +229,7 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
         if (resposta == JOptionPane.YES_OPTION) {
             try {
                 if (oponente != null) oponente.receberDesistencia();
+                JOptionPane.showMessageDialog(this, "Você desistiu! O oponente venceu!");
             } catch (RemoteException e) {
                 e.printStackTrace();
             }
@@ -280,7 +288,14 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
 
         int vencedor = backend.verificarVencedor();
         if (vencedor == oponenteId ) {
-           JOptionPane.showMessageDialog(this, "Você ficou com apenas 2 peças. O oponente venceu!"); 
+            try {
+                if (oponente != null) oponente.anunciarVitoria();
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+
+            JOptionPane.showMessageDialog(this, "Você ficou com apenas 2 peças. O oponente venceu!");
+            System.exit(0); 
         }
     }
 
@@ -311,5 +326,11 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
             adicionarMensagemChat("Sistema", "É a sua vez de jogar!", "gray");
         }
         atualizarTabuleiro();
+    }
+
+    @Override
+    public void anunciarVitoria() throws RemoteException {
+        JOptionPane.showMessageDialog(this, "Parabéns! Você venceu o jogo Dara!", "Vitória Vintage", JOptionPane.INFORMATION_MESSAGE);
+        System.exit(0);
     }
 }

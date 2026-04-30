@@ -17,4 +17,7 @@ public interface InterfaceJogo extends Remote {
     
     // 5. Desistência: Avisa que o oponente saiu 
     void receberDesistencia() throws RemoteException;
+
+    // 6. Fim de Jogo: Avisa ao oponente que ele venceu a partida
+    void anunciarVitoria() throws RemoteException;
 }
