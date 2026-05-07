@@ -28,7 +28,7 @@ public class MainRMI {
                         // O Servidor procura o Cliente (DaraP2)
                         InterfaceJogo oponente = (InterfaceJogo) Naming.lookup("rmi://localhost/DaraP2");
                         janelaServidor.setOponente(oponente);
-                        janelaServidor.adicionarMensagemChat("Sistema", "Oponente conectado! Você começa.", "gray");
+                        janelaServidor.postarAviso("Oponente conectado! Você começa.");
                         break; // IMPORTANTE: Sai do loop ao conectar
                     } catch (Exception e) {
                         Thread.sleep(1000); 
@@ -46,7 +46,7 @@ public class MainRMI {
                 
                 // CORREÇÃO: Chama 'receberMensagem' (método da Interface) e não 'adicionarMensagemChat'
                 servidor.receberMensagem("Sistema", "O Jogador 2 entrou na sala!");
-                janelaCliente.adicionarMensagemChat("Sistema", "Conectado ao Servidor!", "gray");
+                janelaCliente.postarAviso("Conectado ao Servidor!");
             }
 
         } catch (Exception ex) {

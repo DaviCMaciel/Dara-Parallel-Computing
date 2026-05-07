@@ -32,7 +32,7 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
         this.oponenteId = (id == NovoTabuleiro.JOGADOR1) ? NovoTabuleiro.JOGADOR2 : NovoTabuleiro.JOGADOR1;
 
         // 1. Configurações da Janela
-        setTitle("Jogo Dara - Estilo Vintage");
+        setTitle("Jogo Dara");
         setSize(1000, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
@@ -116,14 +116,32 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
         this.oponente = oponente;  
     }
 
-    private void atualizarTabuleiro() {
+    // Centraliza todas as mensagens do sistema
+    public void postarAviso(String msg) {
+        String cor;
+        if (modoCaptura) {
+            cor = "orange"; // Alerta de captura
+        } else if (backend.isFaseColocacao()) {
+            cor = "gray";   // Fase inicial
+        } else {
+            cor = "navy";   // Fase de movimentação
+        }
+        adicionarMensagemChat("Sistema", msg, cor);
+    }
+
+    public void atualizarTabuleiro() {
         for (int l = 0; l < 5; l++) {
             for (int c = 0; c < 6; c++) {
                 int peca = backend.getPeca(l, c);
-                
-                // Reseta visual base
-                botoes[l][c].setBackground(CINZA_XP);
                 botoes[l][c].setBorder(BorderFactory.createRaisedBevelBorder());
+                
+                if (l == lOrigem && c == cOrigem) {
+                    botoes[l][c].setBackground(Color.YELLOW); // Destaca a peça selecionada
+                    botoes[l][c].setBorder(BorderFactory.createLineBorder(Color.BLACK, 2));
+                } else {
+                    botoes[l][c].setBackground(CINZA_XP);
+                    botoes[l][c].setBorder(BorderFactory.createRaisedBevelBorder());
+                }
 
                 if (peca == NovoTabuleiro.JOGADOR1) {
                     botoes[l][c].setText("X");
@@ -156,7 +174,7 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
                     oponente.receberRemocao(l, c);
                     modoCaptura = false;
                     jogadorAtual = oponenteId; // Passa a vez para o oponente
-                    adicionarMensagemChat("Sistema", "Você capturou uma peça do oponente! Turno do oponente.", "gray");
+                    postarAviso("Você capturou uma peça do oponente! Turno do oponente.");
                 }
                 atualizarTabuleiro();
                 return;
@@ -172,7 +190,11 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
 
                         atualizarTabuleiro();
 
-                        adicionarMensagemChat("Sistema", "Peça colocada! Turno do oponente.", "gray");
+                        if (!backend.isFaseColocacao()) {
+                            JOptionPane.showMessageDialog(this, "Fase de Colocação encerrada! Começou a Movimentação.");
+                        } else {
+                            postarAviso("Peça colocada! Turno do oponente.");
+                        }
                     } catch (RemoteException ex) {
                         ex.printStackTrace();
                     }
@@ -188,35 +210,39 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
                     if (backend.getPeca(l, c) == meuId) {
                         lOrigem = l;
                         cOrigem = c;
-                        botoes[l][c].setBackground(Color.YELLOW); // Destaca a peça selecionada
                     }
+
                 } else {
+                    if (l == lOrigem && c == cOrigem) {
+                        // Deseleciona a peça
+                        lOrigem = -1;
+                        cOrigem = -1;
+                    }
                     // Tenta mover para o destino
-                    if (backend.moverPeca(meuId, lOrigem, cOrigem, l, c)) {
+                    else if (backend.moverPeca(meuId, lOrigem, cOrigem, l, c)) {
                         try {
                             if (oponente != null) oponente.receberMovimento(lOrigem, cOrigem, l, c);
 
                             if (backend.formouTrio(l, c, meuId)) {
                                 modoCaptura = true; // Ativa modo captura para o próximo clique
-                                adicionarMensagemChat("Sistema", "Você formou um trio! Escolha uma peça do oponente para capturar.", "gray");
+                                postarAviso("Você formou um trio! Escolha uma peça do oponente para capturar.");
                             } else {
                                 jogadorAtual = oponenteId; // Passa a vez para o oponente
-                                adicionarMensagemChat("Sistema", "Peça movida! Turno do oponente.", "gray");
+                                postarAviso("Peça movida! Turno do oponente.");
                             }
                         } catch (RemoteException ex) {
                             ex.printStackTrace();
                         }
                     } else {
-                        JOptionPane.showMessageDialog(this, "Movimento Inválido!\nSó é permitido mover para espaços adjacentes vazios.", "Regras do Dara", JOptionPane.WARNING_MESSAGE);
+                        if (!(l == lOrigem && c == cOrigem)) {
+                            JOptionPane.showMessageDialog(this, "Movimento Inválido!\nSó é permitido mover para espaços adjacentes vazios.", "Regras do Dara", JOptionPane.WARNING_MESSAGE);
+                        }
                     }
-                    // Reseta seleção
-                    botoes[lOrigem][cOrigem].setBorder(BorderFactory.createRaisedBevelBorder());
                     lOrigem = -1;
                     cOrigem = -1;
                 }
             }
             atualizarTabuleiro();
-
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -266,7 +292,7 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
     @Override
     public void receberMensagem(String autor, String msg) throws RemoteException {
         if (autor.equals("Sistema")) {
-            adicionarMensagemChat(autor, msg, "gray"); // Mensagem do sistema em cinza
+            postarAviso(msg);
         } else {
             adicionarMensagemChat(autor, msg, "red"); // Mensagem do oponente em vermelho
         }
@@ -280,11 +306,12 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
 
     @Override
     public void receberRemocao(int l, int c) throws RemoteException {
+        this.lOrigem = -1; this.cOrigem = -1; // Limpa qualquer seleção pendente
         backend.removerPeca(oponenteId, l, c);
         atualizarTabuleiro();
 
         this.jogadorAtual = meuId; // Agora é o meu turno
-        adicionarMensagemChat("Sistema", "O oponente capturou uma de suas peças! É a sua vez de jogar!", "gray");
+        postarAviso("O oponente capturou uma de suas peças! É a sua vez de jogar!");
 
         int vencedor = backend.verificarVencedor();
         if (vencedor == oponenteId ) {
@@ -294,43 +321,58 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
                 e.printStackTrace();
             }
 
-            JOptionPane.showMessageDialog(this, "Você ficou com apenas 2 peças. O oponente venceu!");
-            System.exit(0); 
+            SwingUtilities.invokeLater(() -> {
+                JOptionPane.showMessageDialog(this, "Você ficou com apenas 2 peças. O oponente venceu!", "Derrota", JOptionPane.INFORMATION_MESSAGE);
+                System.exit(0);
+            });
+            
         }
     }
 
     @Override
     public void receberJogada(int l, int c) throws RemoteException {
+        this.lOrigem = -1; this.cOrigem = -1; // Limpa qualquer seleção pendente
         // Aqui atualizamos o backend e a UI com a jogada que veio da rede
         backend.colocarPeca(oponenteId, l, c);
         atualizarTabuleiro();
 
+        if (!backend.isFaseColocacao()) {
+            SwingUtilities.invokeLater(() -> {
+                JOptionPane.showMessageDialog(this, "Fase de Colocação encerrada! Começou a Movimentação.");
+            });
+        } 
+
         if (backend.formouTrio(l, c, oponenteId)) {
             this.jogadorAtual = oponenteId; // O oponente continua jogando para capturar
-            adicionarMensagemChat("Sistema", "O oponente formou um trio! Ele pode capturar uma peça sua.", "gray");
+            postarAviso("O oponente formou um trio! Ele pode capturar uma peça sua.");
         } else {
             this.jogadorAtual = meuId; // Agora é o meu turno
-            adicionarMensagemChat("Sistema", "É a sua vez de jogar!", "gray");
+            postarAviso("É a sua vez de jogar!");
         }
     }
 
     @Override
     public void receberMovimento(int lOrigem, int cOrigem, int lDestino, int cDestino) throws RemoteException {
+        this.lOrigem = -1; this.cOrigem = -1; // Limpa qualquer seleção pendente
         backend.moverPeca(oponenteId, lOrigem, cOrigem, lDestino, cDestino);
         
         if (backend.formouTrio(lDestino, cDestino, oponenteId)) {
             this.jogadorAtual = oponenteId; // O oponente continua jogando para capturar
-            adicionarMensagemChat("Sistema", "O oponente formou um trio! Ele pode capturar uma peça sua.", "gray");
+            postarAviso("O oponente formou um trio! Ele pode capturar uma peça sua.");
         } else {
             this.jogadorAtual = meuId; // Agora é o meu turno
-            adicionarMensagemChat("Sistema", "É a sua vez de jogar!", "gray");
+            postarAviso("É a sua vez de jogar!");
         }
         atualizarTabuleiro();
     }
 
     @Override
     public void anunciarVitoria() throws RemoteException {
-        JOptionPane.showMessageDialog(this, "Parabéns! Você venceu o jogo Dara!", "Vitória Vintage", JOptionPane.INFORMATION_MESSAGE);
-        System.exit(0);
+        jogoFinalizado = true;
+        SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(this, "Parabéns! Você venceu o jogo Dara!", "Vitória!", JOptionPane.INFORMATION_MESSAGE);
+            System.exit(0);
+        });
+        
     }
 }
