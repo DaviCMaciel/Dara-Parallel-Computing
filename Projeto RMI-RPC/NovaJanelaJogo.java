@@ -126,7 +126,7 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
         } else if (backend.isFaseColocacao()) {
             cor = "gray";   // Fase inicial de colocação
         } else {
-            cor = "\"#008000\"s";   // Fase de movimentação
+            cor = "#008000";   // Fase de movimentação
         }
         adicionarMensagemChat("Sistema", msg, cor);
     }
@@ -290,6 +290,13 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
     
         // Garante que o scroll desça automaticamente
         areaChat.setCaretPosition(areaChat.getDocument().getLength());
+    }
+
+
+    @Override
+    public void registrarOponente(InterfaceJogo oponente) throws RemoteException {
+        this.oponente = oponente; // Guarda a referência do oponente que acabou de ligar
+        postarAviso("Oponente conectado! Você começa."); // Avisa no chat que o oponente entrou e que é a sua vez de jogar
     }
 
     @Override
