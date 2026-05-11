@@ -16,7 +16,6 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
     private final Color CINZA_XP = new Color(212, 208, 200); 
     private final Color AZUL_XP = new Color(0, 0, 128);
     private final Color VERMELHO_XP = new Color(128, 0, 0);
-    private final Color VERDE_XP = new Color(0, 128, 0);
 
     private int jogadorAtual = NovoTabuleiro.JOGADOR1;
     private int lOrigem = -1;
