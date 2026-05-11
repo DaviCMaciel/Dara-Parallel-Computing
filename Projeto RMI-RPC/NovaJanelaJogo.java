@@ -16,6 +16,7 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
     private final Color CINZA_XP = new Color(212, 208, 200); 
     private final Color AZUL_XP = new Color(0, 0, 128);
     private final Color VERMELHO_XP = new Color(128, 0, 0);
+    private final Color VERDE_XP = new Color(0, 128, 0);
 
     private int jogadorAtual = NovoTabuleiro.JOGADOR1;
     private int lOrigem = -1;
@@ -119,12 +120,14 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
     // Centraliza todas as mensagens do sistema
     public void postarAviso(String msg) {
         String cor;
-        if (modoCaptura) {
-            cor = "orange"; // Alerta de captura
+        String msgLower = msg.toLowerCase();
+
+        if (msgLower.contains("trio") || msgLower.contains("captur")) {
+            cor = "orange"; // Laranja para qualquer evento de captura
         } else if (backend.isFaseColocacao()) {
-            cor = "gray";   // Fase inicial
+            cor = "gray";   // Fase inicial de colocação
         } else {
-            cor = "navy";   // Fase de movimentação
+            cor = "\"#008000\"s";   // Fase de movimentação
         }
         adicionarMensagemChat("Sistema", msg, cor);
     }
@@ -191,6 +194,7 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
                         atualizarTabuleiro();
 
                         if (!backend.isFaseColocacao()) {
+                            postarAviso("Fase de Colocação encerrada! Começou a Movimentação.");
                             JOptionPane.showMessageDialog(this, "Fase de Colocação encerrada! Começou a Movimentação.");
                         } else {
                             postarAviso("Peça colocada! Turno do oponente.");
@@ -337,6 +341,7 @@ public class NovaJanelaJogo extends JFrame implements InterfaceJogo{
         atualizarTabuleiro();
 
         if (!backend.isFaseColocacao()) {
+            postarAviso("Fase de Colocação encerrada! Começou a Movimentação.");
             SwingUtilities.invokeLater(() -> {
                 JOptionPane.showMessageDialog(this, "Fase de Colocação encerrada! Começou a Movimentação.");
             });
